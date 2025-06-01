@@ -20,7 +20,7 @@ To be able to run this project, there are actually easy requirements that you mu
 
 Have you met the above requirements? Let's move on to the next steps
 
-> [!INFO]
+> [!NOTE]
 > You can also customize the Resource Container to your liking according to the guide below. You can also change the others according to your needs.
 
 You can open the `docker-compose.yml` file and on lines 7 and 8 and lines 28 and 29 you can see the resource container configuration related to cpu usage and memory limits.
@@ -90,7 +90,7 @@ docker compose up -d
 
 Hooray. Your project should be accessible through the domain that you have configured. And you can see the traefik dashboard through your Server Ip with port 8080.
 
-> [!INFO]
+> [!NOTE]
 > You can monitor the debug logs of traefik
 
 When you want to monitor debug logs of reverse proxy traffic access you can use the `docker exec` feature which can be utilized to display logs. You can execute the command below:
