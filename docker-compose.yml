@@ -1,0 +1,80 @@
+version: "3.9"
+
+services:
+  portainer-ce:
+    image: portainer/portainer-ce:2.30.1-alpine
+    container_name: portainer-ce
+    cpus: 0.5
+    mem_limit: 512m
+    labels:
+      - traefik.enable=true
+      - 'traefik.http.routers.portainer-router.rule=Host("$PORTAINER_DOMAIN")'
+      - traefik.http.routers.portainer-router.entrypoints=web-https
+      - traefik.http.routers.portainer-router.service=portainer-service
+      - traefik.http.routers.portainer-router.tls=true
+      - traefik.http.routers.portainer-router.tls.certresolver=letsencrypt-prod
+      - traefik.http.services.portainer-service.loadbalancer.server.port=9000
+      - traefik.http.services.portainer-service.loadbalancer.server.scheme=http
+      - traefik.http.services.portainer-service.loadbalancer.passhostheader=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer-data:/data:rw
+    depends_on:
+      - traefik-reverse-proxy
+    restart: always
+  traefik-reverse-proxy:
+    image: traefik:3.4.0
+    container_name: traefik-reverse-proxy
+    cpus: 0.5
+    mem_limit: 512m
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-tls:/etc/letsencrypt:rw
+    restart: always
+    environment:
+      - CF_DNS_API_TOKEN=$CF_DNS_API_TOKEN
+    ports:
+      - ${TRAEFIK_HOST}:${TRAEFIK_HTTP_PORT}:80
+      - ${TRAEFIK_HOST}:${TRAEFIK_HTTPS_PORT}:443
+      - ${TRAEFIK_HOST}:${TRAEFIK_DASHBOARD_PORT}:8080
+    command:
+      - --entrypoints.web-http.address=:80
+      - --entrypoints.web-http.http.redirections.entryPoint.scheme=https
+      - --entrypoints.web-http.http.redirections.entryPoint.to=web-https
+      - --entrypoints.web-http.http.redirections.entryPoint.permanent=false
+      - --entrypoints.web-https.address=:443
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --certificatesResolvers.letsencrypt-prod.acme.email=$CF_EMAIL
+      - --certificatesResolvers.letsencrypt-prod.acme.storage=/etc/letsencrypt/acme-prod.json
+      - --certificatesResolvers.letsencrypt-prod.acme.caServer=https://acme-v02.api.letsencrypt.org/directory
+      - --certificatesResolvers.letsencrypt-prod.acme.dnsChallenge.provider=cloudflare
+      - --certificatesResolvers.letsencrypt-prod.acme.dnsChallenge.resolvers=1.1.1.1:53,8.8.8.8:53
+      - --certificatesResolvers.letsencrypt-prod.acme.dnsChallenge.delayBeforeCheck=0
+      - --certificatesResolvers.letsencrypt-staging.acme.email=$CF_EMAIL
+      - --certificatesResolvers.letsencrypt-staging.acme.storage=/etc/letsencrypt/acme-staging.json
+      - --certificatesResolvers.letsencrypt-staging.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory
+      - --certificatesResolvers.letsencrypt-staging.acme.dnsChallenge.provider=cloudflare
+      - --certificatesResolvers.letsencrypt-staging.acme.dnsChallenge.resolvers=1.1.1.1:53,8.8.8.8:53
+      - --certificatesResolvers.letsencrypt-staging.acme.dnsChallenge.delayBeforeCheck=0
+      - --log.level=DEBUG
+      - --log.filePath=/var/log/traefik-debug-log
+      - --log.format=common
+      - --accessLog.filePath=/var/log/traefik-access-log
+      - --accessLog.format=common
+      - --providers.docker.endpoint=unix:///var/run/docker.sock
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.watch=true
+
+volumes:
+  portainer-data:
+    name: ${USER}-portainer-data
+    driver: local
+    labels:
+      - platform=portainer
+  traefik-tls:
+    name: ${USER}-traefik-tls
+    driver: local
+    labels:
+      - platform=traefik
+      - filetype=tls
